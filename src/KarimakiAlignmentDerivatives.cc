@@ -1,7 +1,7 @@
 /** \file KarimakiAlignmentDerivatives.cc
  *
- *  $Date: 2007/05/02 10:51:40 $
- *  $Revision: 1.5 $
+ *  $Date: 2006/10/19 14:20:59 $
+ *  $Revision: 1.3 $
  */
 
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
@@ -14,7 +14,7 @@ KarimakiAlignmentDerivatives::operator()( const TrajectoryStateOnSurface &tsos )
 { 
 
   // Get track parameters on surface
-  AlgebraicVector5 alivec = tsos.localParameters().mixedFormatVector();
+  AlgebraicVector alivec = tsos.localParameters().mixedFormatVector();
 
   // [0] q/p  : charged: charge (+ or - one) divided by magnitude of momentum
   //            neutral : inverse magnitude of momentum
