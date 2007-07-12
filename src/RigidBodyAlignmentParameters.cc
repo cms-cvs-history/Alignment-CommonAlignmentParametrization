@@ -1,7 +1,8 @@
 /** \file RigidBodyAlignmentParameters.cc
  *
- *  $Date: 2007/04/30 12:38:58 $
- *  $Revision: 1.7 $
+ *  Version    : $Revision: 1.11 $
+ *  last update: $Date: 2007/06/13 08:30:10 $
+ *  by         : $Author: flucke $
  */
 
 #include "FWCore/Utilities/interface/Exception.h"
@@ -9,15 +10,20 @@
 #include "Alignment/CommonAlignment/interface/Alignable.h"
 #include "Alignment/CommonAlignment/interface/Utilities.h"
 #include "Alignment/CommonAlignmentParametrization/interface/KarimakiAlignmentDerivatives.h"
-
+#include "Alignment/CommonAlignmentParametrization/interface/FrameToFrameDerivative.h"
 // This class's header 
 
 #include "Alignment/CommonAlignmentParametrization/interface/RigidBodyAlignmentParameters.h"
 
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "Alignment/CommonAlignment/interface/AlignableDetOrUnitPtr.h"
+
 //__________________________________________________________________________________________________
-RigidBodyAlignmentParameters::RigidBodyAlignmentParameters(Alignable* ali) :
-  AlignmentParameters(ali, displacementFromAlignable(ali), AlgebraicSymMatrix(N_PARAM, 0))
-{}
+RigidBodyAlignmentParameters::RigidBodyAlignmentParameters(Alignable* ali, bool calcMis) :
+  AlignmentParameters(ali, displacementFromAlignable(calcMis ? ali : 0),
+		      AlgebraicSymMatrix(N_PARAM, 0))
+{
+}
 
 //__________________________________________________________________________________________________
 RigidBodyAlignmentParameters::RigidBodyAlignmentParameters(Alignable* alignable, 
@@ -76,14 +82,20 @@ RigidBodyAlignmentParameters::cloneFromSelected( const AlgebraicVector& paramete
   return rbap;
 }
 
-
-
 //__________________________________________________________________________________________________
 AlgebraicMatrix 
-RigidBodyAlignmentParameters::derivatives( const TrajectoryStateOnSurface& tsos, 
-					   const AlignableDetOrUnitPtr & ) const
+RigidBodyAlignmentParameters::derivatives( const TrajectoryStateOnSurface &tsos,
+					   const AlignableDetOrUnitPtr &alidet ) const
 {
-  return KarimakiAlignmentDerivatives()(tsos);
+  const Alignable *ali = this->alignable(); // Alignable of these parameters
+
+  if (ali == alidet) { // same alignable => same frame
+    return KarimakiAlignmentDerivatives()(tsos);
+  } else { // different alignable => transform into correct frame
+    const AlgebraicMatrix deriv = KarimakiAlignmentDerivatives()(tsos);
+    FrameToFrameDerivative ftfd;
+    return ftfd.frameToFrameDerivative(alidet, ali) * deriv;
+  }
 }
 
 
@@ -92,7 +104,7 @@ AlgebraicMatrix
 RigidBodyAlignmentParameters::selectedDerivatives( const TrajectoryStateOnSurface& tsos, 
 						   const AlignableDetOrUnitPtr &alignableDet ) const
 {
-  AlgebraicMatrix dev = derivatives( tsos, alignableDet );
+  const AlgebraicMatrix dev = this->derivatives( tsos, alignableDet );
 
   int ncols  = dev.num_col();
   int nrows  = dev.num_row();
@@ -137,16 +149,16 @@ AlgebraicVector RigidBodyAlignmentParameters::globalParameters(void) const
 {
   AlgebraicVector m_GlobalParameters(N_PARAM, 0);
 
-  AlgebraicVector shift = translation(); // fixme: should return LocalVector
+  const AlgebraicVector shift = translation(); // fixme: should return LocalVector
 
-  align::LocalVector lv(shift[0], shift[1], shift[2]);
-  align::GlobalVector dg = theAlignable->surface().toGlobal(lv);
+  const align::LocalVector lv(shift[0], shift[1], shift[2]);
+  const align::GlobalVector dg = theAlignable->surface().toGlobal(lv);
 
   m_GlobalParameters[0] = dg.x();
   m_GlobalParameters[1] = dg.y();
   m_GlobalParameters[2] = dg.z();
 
-  align::EulerAngles eulerglob = theAlignable->surface().toGlobal( rotation() );
+  const align::EulerAngles eulerglob = theAlignable->surface().toGlobal( rotation() );
 
   m_GlobalParameters[3]=eulerglob(1);
   m_GlobalParameters[4]=eulerglob(2);
@@ -166,22 +178,26 @@ void RigidBodyAlignmentParameters::print(void) const
 }
 
 
-AlgebraicVector RigidBodyAlignmentParameters::displacementFromAlignable(Alignable* ali) const
+//__________________________________________________________________________________________________
+AlgebraicVector RigidBodyAlignmentParameters::displacementFromAlignable(const Alignable* ali)
 {
-  const align::RotationType& dR = ali->rotation();
-
-  align::LocalVector shifts( ali->globalRotation() * ( dR.transposed() * ali->displacement().basicVector() ) );
-
-  align::EulerAngles angles = align::toAngles( ali->surface().toLocal(dR) );
-
   AlgebraicVector displacement(N_PARAM);
 
-  displacement[0] = shifts.x();
-  displacement[1] = shifts.y();
-  displacement[2] = shifts.z();
-  displacement[3] = angles(1);
-  displacement[4] = angles(2);
-  displacement[5] = angles(3);
+  if (ali) {
+    const align::RotationType& dR = ali->rotation();
+    
+    const align::LocalVector shifts( ali->globalRotation() * 
+				     ( dR.transposed() * ali->displacement().basicVector() ) );
+
+    const align::EulerAngles angles = align::toAngles( ali->surface().toLocal(dR) );
+
+    displacement[0] = shifts.x();
+    displacement[1] = shifts.y();
+    displacement[2] = shifts.z();
+    displacement[3] = angles(1);
+    displacement[4] = angles(2);
+    displacement[5] = angles(3);
+  }
 
   return displacement;
 }

@@ -9,8 +9,8 @@
 /// [derived from AlignmentParameters]. The number of parameters
 /// N_PARAM is fixed to 6 (3 translations + 3 rotations)
 ///
-///  $Date: 2007/04/30 12:38:55 $
-///  $Revision: 1.7 $
+///  $Date: 2007/06/13 08:30:08 $
+///  $Revision: 1.10 $
 /// (last update by $Author: flucke $)
 
 class AlignableDetOrUnitPtr;
@@ -28,8 +28,9 @@ public:
 	  N_PARAM
 	};
 
-  /// Constructor creating parameters (no covariance) from current (mis-)placement of alignable
-  explicit RigidBodyAlignmentParameters(Alignable* alignable);
+  /// Constructor with empty parameters/covariance (if calcMis = false) or with parameters
+  /// (no covariance) created from current (mis-)placement of alignable (if calcMis = true).
+  RigidBodyAlignmentParameters(Alignable* alignable, bool calcMis);
 
   /// Constructor for full set of parameters
   RigidBodyAlignmentParameters( Alignable* alignable, 
@@ -49,17 +50,16 @@ public:
 					       const AlgebraicSymMatrix& covMatrix ) const;
  
   /// Clone selected parameters (for update of parameters)
-    virtual RigidBodyAlignmentParameters* 
-      cloneFromSelected( const AlgebraicVector& parameters, 
-			 const AlgebraicSymMatrix& covMatrix ) const;
+  virtual RigidBodyAlignmentParameters*
+    cloneFromSelected(const AlgebraicVector& parameters, const AlgebraicSymMatrix& covMatrix) const;
   
   /// Get all derivatives 
   virtual AlgebraicMatrix derivatives( const TrajectoryStateOnSurface& tsos,
 				       const AlignableDetOrUnitPtr & ) const;
 
   /// Get selected derivatives
-  AlgebraicMatrix selectedDerivatives( const TrajectoryStateOnSurface& tsos, 
-				       const AlignableDetOrUnitPtr & ) const;
+  virtual AlgebraicMatrix selectedDerivatives( const TrajectoryStateOnSurface& tsos, 
+					       const AlignableDetOrUnitPtr & ) const;
 
   /// Get translation parameters
   AlgebraicVector translation(void) const;
@@ -73,9 +73,9 @@ public:
   /// print parameters to screen 
   void print(void) const;
 
-protected:
-
-  AlgebraicVector displacementFromAlignable(Alignable* ali) const;
+  /// Calculate parameter vector of misplacements (shift+rotation) from alignable.
+  /// (If ali=0, return empty AlgebraicVector of proper length.)
+  static AlgebraicVector displacementFromAlignable(const Alignable* ali);
 
 };
 
